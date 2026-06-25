@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -18,6 +19,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+
+import java.io.IOException;
 
 public class AlarmService extends Service {
 
@@ -30,6 +33,7 @@ public class AlarmService extends Service {
     private Vibrator vibrator;
     private TTSManager ttsManager;
     private BriefingManager briefingManager;
+    private MediaPlayer mediaPlayer;
 
     @Override
     public void onCreate() {
@@ -37,6 +41,14 @@ public class AlarmService extends Service {
         createNotificationChannel();
         ttsManager = new TTSManager(this);
         briefingManager = new BriefingManager();
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                stopSelf();
+            }
+        });
     }
 
     @Override
@@ -116,18 +128,53 @@ public class AlarmService extends Service {
     private void fetchAndPlayBriefing() {
         briefingManager.fetchMorningBriefing(new BriefingManager.BriefingCallback() {
             @Override
-            public void onSuccess(String title, String date, String content) {
-                updateNotification(title, "正在播放早报...");
-                ttsManager.speak(content);
+            public void onSuccess(BriefingManager.BriefingData data) {
+                updateNotification(data.title, "正在播放早报...");
+                playBriefing(data);
             }
 
             @Override
             public void onError(String error) {
-                String fallback = getFallbackBriefing();
+                BriefingManager.BriefingData fallback = new BriefingManager.BriefingData();
+                fallback.title = "财经早报";
+                fallback.content = getFallbackBriefing();
+                fallback.audioUrl = "";
                 updateNotification("财经早报", "正在播放早报...");
-                ttsManager.speak(fallback);
+                playBriefing(fallback);
             }
         });
+    }
+
+    private void playBriefing(BriefingManager.BriefingData data) {
+        if (data.audioUrl != null && !data.audioUrl.isEmpty()) {
+            playAudio(data.audioUrl);
+        } else {
+            playTTS(data.content);
+        }
+    }
+
+    private void playAudio(String url) {
+        try {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            mediaPlayer.reset();
+            mediaPlayer.setDataSource(url);
+            mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mp) {
+                    mp.start();
+                }
+            });
+            mediaPlayer.prepareAsync();
+        } catch (IOException e) {
+            e.printStackTrace();
+            playTTS(getFallbackBriefing());
+        }
+    }
+
+    private void playTTS(String text) {
+        ttsManager.speak(text);
     }
 
     private String getFallbackBriefing() {
@@ -144,6 +191,15 @@ public class AlarmService extends Service {
         stopAlarmSound();
         if (ttsManager != null) {
             ttsManager.stop();
+        }
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -232,6 +288,10 @@ public class AlarmService extends Service {
         stopAlarm();
         if (ttsManager != null) {
             ttsManager.shutdown();
+        }
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
         }
     }
 }

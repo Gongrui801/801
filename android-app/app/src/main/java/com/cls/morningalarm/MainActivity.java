@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -15,6 +17,7 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.util.Calendar;
 
 public class MainActivity extends Activity {
@@ -35,11 +38,15 @@ public class MainActivity extends Activity {
     private TextView briefingTitle;
     private TextView briefingDate;
     private TextView briefingContent;
+    private TextView playModeText;
 
     private SharedPreferences prefs;
     private BriefingManager briefingManager;
     private TTSManager ttsManager;
-    private String briefingText = "";
+    private MediaPlayer mediaPlayer;
+    private BriefingManager.BriefingData currentBriefing;
+    private boolean isPlaying = false;
+    private boolean useAudio = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,6 +101,16 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         briefingManager = new BriefingManager();
         ttsManager = new TTSManager(this);
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                isPlaying = false;
+                playBtn.setEnabled(true);
+                stopBtn.setEnabled(false);
+            }
+        });
     }
 
     private void loadPreferences() {
@@ -181,17 +198,30 @@ public class MainActivity extends Activity {
     private void fetchBriefing() {
         fetchBriefingBtn.setEnabled(false);
         briefingContent.setText("加载中...");
+        playBtn.setEnabled(false);
+        stopBtn.setEnabled(false);
 
         briefingManager.fetchMorningBriefing(new BriefingManager.BriefingCallback() {
             @Override
-            public void onSuccess(final String title, final String date, final String content) {
+            public void onSuccess(BriefingManager.BriefingData data) {
+                currentBriefing = data;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        briefingTitle.setText(title);
-                        briefingDate.setText(date);
-                        briefingContent.setText(content);
-                        briefingText = content;
+                        briefingTitle.setText(data.title);
+                        briefingDate.setText(data.date);
+                        
+                        String displayContent = data.content;
+                        if (data.audioUrl != null && !data.audioUrl.isEmpty()) {
+                            displayContent += "\n\n🎵 已获取原声播报音频";
+                            useAudio = true;
+                            playBtn.setText("播放原声早报");
+                        } else {
+                            useAudio = false;
+                            playBtn.setText("语音播报");
+                        }
+                        
+                        briefingContent.setText(displayContent);
                         playBtn.setEnabled(true);
                         fetchBriefingBtn.setEnabled(true);
                     }
@@ -203,7 +233,15 @@ public class MainActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        briefingContent.setText("获取失败: " + error);
+                        briefingContent.setText("获取失败: " + error + "\n\n将使用备用内容");
+                        currentBriefing = new BriefingManager.BriefingData();
+                        currentBriefing.title = "财经早报";
+                        currentBriefing.date = "";
+                        currentBriefing.content = getFallbackBriefing();
+                        currentBriefing.audioUrl = "";
+                        useAudio = false;
+                        playBtn.setText("语音播报");
+                        playBtn.setEnabled(true);
                         fetchBriefingBtn.setEnabled(true);
                     }
                 });
@@ -211,16 +249,64 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String getFallbackBriefing() {
+        return "早上好，现在为您播报财经早报。" +
+                "市场概述：昨日A股市场整体震荡运行，沪指小幅收涨，创业板指表现相对较弱。" +
+                "宏观经济：国家经济保持稳步复苏态势，主要经济指标持续改善。" +
+                "行业动态：新能源汽车产业持续向好，多家车企销量同比大幅增长。" +
+                "公司要闻：多家上市公司发布重要公告，投资者需关注相关影响。" +
+                "海外市场：美股昨夜涨跌互现，科技股表现分化，市场关注美联储货币政策走向。" +
+                "以上就是今日早报的主要内容，祝您一天愉快。";
+    }
+
     private void playBriefing() {
-        if (!briefingText.isEmpty()) {
-            ttsManager.speak(briefingText);
-            playBtn.setEnabled(false);
-            stopBtn.setEnabled(true);
+        if (currentBriefing == null) return;
+
+        if (useAudio && currentBriefing.audioUrl != null && !currentBriefing.audioUrl.isEmpty()) {
+            playAudio(currentBriefing.audioUrl);
+        } else {
+            playTTS(currentBriefing.content);
+        }
+
+        isPlaying = true;
+        playBtn.setEnabled(false);
+        stopBtn.setEnabled(true);
+    }
+
+    private void playAudio(String url) {
+        try {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            mediaPlayer.reset();
+            mediaPlayer.setDataSource(url);
+            mediaPlayer.prepareAsync();
+            mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mp) {
+                    mp.start();
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+            if (currentBriefing != null && currentBriefing.content != null) {
+                playTTS(currentBriefing.content);
+            }
+        }
+    }
+
+    private void playTTS(String text) {
+        if (text != null && !text.isEmpty()) {
+            ttsManager.speak(text);
         }
     }
 
     private void stopBriefing() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.stop();
+        }
         ttsManager.stop();
+        isPlaying = false;
         playBtn.setEnabled(true);
         stopBtn.setEnabled(false);
     }
@@ -228,6 +314,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
         ttsManager.shutdown();
     }
 }
