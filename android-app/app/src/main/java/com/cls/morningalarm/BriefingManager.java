@@ -35,20 +35,20 @@ public class BriefingManager {
             public void run() {
                 try {
                     String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-                    String urlStr = "https://www.cls.cn/nodeapi/telegraphList?app=CailianpressWeb&os=web&sv=8.4.6";
+                    String urlStr = "https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_50_1_.html";
 
                     URL url = new URL(urlStr);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                    conn.setRequestProperty("Referer", "https://www.cls.cn/");
+                    conn.setRequestProperty("Referer", "https://www.eastmoney.com/");
                     conn.setRequestProperty("Accept", "application/json");
                     conn.setConnectTimeout(15000);
                     conn.setReadTimeout(15000);
 
                     int responseCode = conn.getResponseCode();
                     if (responseCode == 200) {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
                         StringBuilder sb = new StringBuilder();
                         String line;
                         while ((line = reader.readLine()) != null) {
@@ -56,73 +56,74 @@ public class BriefingManager {
                         }
                         reader.close();
 
-                        JSONObject jsonObject = new JSONObject(sb.toString());
+                        String jsonStr = sb.toString();
+                        int jsonStart = jsonStr.indexOf("{");
+                        int jsonEnd = jsonStr.lastIndexOf("}");
+                        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                            jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+                        }
 
-                        if (jsonObject.optInt("code") == 0) {
-                            JSONObject data = jsonObject.optJSONObject("data");
-                            JSONArray rollData = data != null ? data.optJSONArray("roll_data") : null;
+                        JSONObject jsonObject = new JSONObject(jsonStr);
+                        JSONArray newsList = jsonObject.optJSONArray("LivesList");
 
-                            if (rollData != null && rollData.length() > 0) {
-                                List<String> newsList = new ArrayList<>();
-                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-                                String today = sdf.format(new Date());
+                        if (newsList != null && newsList.length() > 0) {
+                            List<String> newsItems = new ArrayList<>();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                            String today = sdf.format(new Date());
 
-                                for (int i = 0; i < Math.min(rollData.length(), 15); i++) {
-                                    JSONObject item = rollData.optJSONObject(i);
-                                    if (item != null) {
-                                        long ctime = item.optLong("ctime");
-                                        String itemDate = sdf.format(new Date(ctime * 1000L));
+                            for (int i = 0; i < Math.min(newsList.length(), 20); i++) {
+                                JSONObject item = newsList.optJSONObject(i);
+                                if (item != null) {
+                                    String showTime = item.optString("showtime", "");
+                                    if (showTime.startsWith(today)) {
+                                        String title = item.optString("title", "");
+                                        String digest = item.optString("digest", "");
 
-                                        if (itemDate.equals(today)) {
-                                            String title = item.optString("title", "");
-                                            String brief = item.optString("brief", "");
-                                            String content = item.optString("content", "");
-
-                                            String newsItem = (title != null && !title.isEmpty() ? title + "。" : "")
-                                                    + (content != null && !content.isEmpty() ? content : brief);
-
+                                        String newsItem = "";
+                                        if (title != null && !title.isEmpty()) {
+                                            newsItem = title;
+                                        }
+                                        if (digest != null && !digest.isEmpty() && !digest.equals(title)) {
                                             if (!newsItem.isEmpty()) {
-                                                newsList.add(newsItem);
+                                                newsItem += "。";
                                             }
+                                            newsItem += digest;
+                                        }
+
+                                        if (!newsItem.isEmpty()) {
+                                            newsItems.add(newsItem);
                                         }
                                     }
                                 }
+                            }
 
-                                if (newsList.isEmpty()) {
-                                    mainHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            callback.onError("今日暂无早报数据");
-                                        }
-                                    });
-                                } else {
-                                    StringBuilder sb2 = new StringBuilder();
-                                    sb2.append("早上好，现在为您播报财联社今日早报。");
-                                    sb2.append("今天是").append(dateStr).append("。");
-                                    sb2.append("以下是今日重要财经资讯：");
-
-                                    for (int i = 0; i < newsList.size(); i++) {
-                                        sb2.append("第").append(i + 1).append("条，");
-                                        sb2.append(newsList.get(i));
-                                        sb2.append("。");
-                                    }
-
-                                    sb2.append("以上就是今日早报的主要内容，祝您一天愉快。");
-
-                                    final String title = "财联社早报 " + dateStr;
-                                    final String contentStr = sb2.toString();
-                                    mainHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            callback.onSuccess(title, dateStr, contentStr);
-                                        }
-                                    });
-                                }
-                            } else {
+                            if (newsItems.isEmpty()) {
                                 mainHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
-                                        callback.onError("数据格式错误");
+                                        callback.onError("今日暂无早报数据");
+                                    }
+                                });
+                            } else {
+                                StringBuilder sb2 = new StringBuilder();
+                                sb2.append("早上好，现在为您播报今日财经早报。");
+                                sb2.append("今天是").append(dateStr).append("。");
+                                sb2.append("以下是今日重要财经资讯：");
+
+                                for (int i = 0; i < newsItems.size(); i++) {
+                                    sb2.append("第").append(i + 1).append("条，");
+                                    sb2.append(newsItems.get(i));
+                                    sb2.append("。");
+                                }
+
+                                sb2.append("以上就是今日早报的主要内容，祝您一天愉快。");
+
+                                final String title = "财经早报 " + dateStr;
+                                final String contentStr = sb2.toString();
+                                mainHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        callback.onSuccess(title, dateStr, contentStr);
                                     }
                                 });
                             }
@@ -130,7 +131,7 @@ public class BriefingManager {
                             mainHandler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    callback.onError("接口返回错误");
+                                    callback.onError("数据格式错误");
                                 }
                             });
                         }
