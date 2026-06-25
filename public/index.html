@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>财联社早报闹钟</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📰 财联社早报闹钟</h1>
+      <p class="subtitle">每天早上，唤醒你的财经早餐</p>
+    </header>
+
+    <div class="clock-section">
+      <div class="current-time" id="currentTime">00:00:00</div>
+      <div class="current-date" id="currentDate">--年--月--日</div>
+    </div>
+
+    <div class="alarm-section">
+      <h2>⏰ 闹钟设置</h2>
+      <div class="alarm-settings">
+        <div class="time-input-group">
+          <label for="alarmTime">唤醒时间</label>
+          <input type="time" id="alarmTime" value="07:30">
+        </div>
+        <div class="alarm-toggle">
+          <label class="switch">
+            <input type="checkbox" id="alarmEnabled" checked>
+            <span class="slider"></span>
+          </label>
+          <span id="alarmStatus">闹钟已开启</span>
+        </div>
+      </div>
+      <div class="alarm-actions">
+        <button id="testAlarmBtn" class="btn btn-secondary">试听早报</button>
+        <button id="stopAlarmBtn" class="btn btn-danger" style="display:none;">停止播放</button>
+      </div>
+    </div>
+
+    <div class="briefing-section">
+      <div class="briefing-header">
+        <h2>📋 今日早报</h2>
+        <button id="refreshBtn" class="btn btn-small">刷新</button>
+      </div>
+      <div id="briefingContent" class="briefing-content">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+
+    <div class="voice-settings">
+      <h2>🔊 语音设置</h2>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label for="voiceSelect">语音音色</label>
+          <select id="voiceSelect"></select>
+        </div>
+        <div class="setting-item">
+          <label for="rateRange">语速: <span id="rateValue">1.0</span></label>
+          <input type="range" id="rateRange" min="0.5" max="2" step="0.1" value="1">
+        </div>
+        <div class="setting-item">
+          <label for="pitchRange">音调: <span id="pitchValue">1.0</span></label>
+          <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
+        </div>
+        <div class="setting-item">
+          <label for="volumeRange">音量: <span id="volumeValue">1.0</span></label>
+          <input type="range" id="volumeRange" min="0" max="1" step="0.1" value="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="alarm-modal" id="alarmModal">
+      <div class="modal-content">
+        <div class="modal-ring">
+          <div class="ring-icon">🔔</div>
+        </div>
+        <h2>早上好！</h2>
+        <p class="modal-time" id="modalTime">07:30</p>
+        <p class="modal-message">财联社早报即将为您播报</p>
+        <div class="modal-actions">
+          <button id="snoozeBtn" class="btn btn-secondary">稍后再响 (5分钟)</button>
+          <button id="dismissBtn" class="btn btn-primary">开始播报</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="alarmSound" loop>
+    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQcAQNHWpXYRAPv/+/sA" type="audio/wav">
+  </audio>
+
+  <script src="app.js"></script>
+</body>
+</html>
