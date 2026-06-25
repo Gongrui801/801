@@ -1,0 +1,8 @@
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/BriefingManager.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/TTSService.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/AlarmReceiver.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/BootReceiver.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/MainActivity.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/TTSManager.java
+/workspace/android-app/app/src/main/java/com/cls/morningalarm/AlarmService.java
+/workspace/android-app/build/gen/com/cls/morningalarm/R.java

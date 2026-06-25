@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">财联社早报闹钟</string>
+    <string name="alarm_time">闹钟时间</string>
+    <string name="alarm_enabled">开启闹钟</string>
+    <string name="fetch_briefing">获取今日早报</string>
+    <string name="play_briefing">播放早报</string>
+    <string name="stop_briefing">停止播放</string>
+    <string name="loading">加载中...</string>
+    <string name="no_data">暂无早报数据</string>
+    <string name="channel_id">morning_alarm_channel</string>
+    <string name="channel_name">早报闹钟通知</string>
+    <string name="alarm_notification_title">财联社早报</string>
+    <string name="alarm_notification_text">正在为您播放今日财经早报</string>
+    <string name="save">保存</string>
+    <string name="repeat_daily">每日重复</string>
+</resources>
